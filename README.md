@@ -1,5 +1,5 @@
-That's a quick script that perform a base configuration of a node as per requirements.
-It's a fully working code for Ubuntu 24.04 LTS and only require to change node IP on the inventory.
+That's a quick script that performs a base configuration of a node as per requirements.
+It's a fully working code for Ubuntu 24.04 LTS and only requires to change node IP on the inventory.
 
 ## Important notes
 I wanted to deploy not just the validator but also Geth and the beacon chain as an example but that's probably not what you want on a validator node as you want to separate Ethereum full node from a validator.
