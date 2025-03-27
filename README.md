@@ -4,7 +4,7 @@ It's a fully working code for Ubuntu 24.04 LTS and only requires to change node 
 ## Important notes
 I wanted to deploy not just the validator but also Geth and the beacon chain as an example but that's probably not what you want on a validator node as you want to separate Ethereum full node from a validator.
 
-## To run the code
+### To run the code
 After update the inventory with the node IP
 
 ```
@@ -12,7 +12,7 @@ After update the inventory with the node IP
 ```
 
 
-## To have that node working we need to:
+### To have that node working we need to:
 - Create Ethereum wallet/keys
 - Configure AWS permissions and CloudWatch (or any other notification mechanism like slack hook etc..)
 
