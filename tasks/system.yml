@@ -1,0 +1,136 @@
+---
+
+# System
+- name: Disable SSH password authentication & set up key-based auth
+  lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
+    state: present
+    backup: yes
+  loop:
+    - { regexp: "^PasswordAuthentication", line: "PasswordAuthentication no" }
+    - { regexp: "^PermitRootLogin", line: "PermitRootLogin no" }
+    - { regexp: "^PubkeyAuthentication", line: "PubkeyAuthentication yes" }
+  notify: Restart SSH
+
+- name: Allow only specific users for SSH
+  lineinfile:
+    path: /etc/ssh/sshd_config
+    line: "AllowUsers {{ allowed_ssh_users | join(' ') }}"
+    state: present
+  notify: Restart SSH
+
+
+# Fail2ban
+- name: Create /etc/fail2ban directory
+  file:
+    path: /etc/fail2ban
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Configure Fail2Ban for SSH protection
+  template:
+    src: templates/jail.local.j2
+    dest: /etc/fail2ban/jail.local
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Ensure Fail2Ban Docker container is running
+  docker_container:
+    name: fail2ban
+    image: crazymax/fail2ban:latest
+    state: started
+    restart_policy: always
+    network_mode: host
+    capabilities:
+      - NET_ADMIN
+      - NET_RAW
+    volumes:
+      - /etc/fail2ban/data:/data:rw
+      - /var/log:/var/log:ro # read only
+    log_driver: "json-file"
+
+
+# Firewall
+- name: Install UFW
+  apt:
+    name: ufw
+    state: present
+
+- name: Deny all incoming traffic by default
+  ufw:
+    policy: deny
+    direction: incoming
+
+- name: Allow outgoing traffic by default
+  ufw:
+    policy: allow
+    direction: outgoing
+
+# ########################################
+# For ports other than SSH
+- name: Allow specific ports
+  ufw:
+    rule: allow
+    port: "{{ item }}"
+    proto: tcp
+  loop: "{{ allowed_ports }}"
+
+# For SSH (with source ip filter)
+- name: Allow SSH for specific source IP (SSH)
+  ufw:
+    rule: allow
+    port: "22"
+    proto: tcp
+    from: "{{ item }}"
+  loop: "{{ allowed_ssh_source_ips }}"
+# ########################################
+
+
+- name: Enable UFW
+  ufw:
+    state: enabled
+
+
+# System Logging (rsyslog & auditd)
+- name: Install logging tools
+  apt:
+    name:
+      - rsyslog
+      - auditd
+    state: present
+
+- name: Ensure rsyslog is running
+  service:
+    name: rsyslog
+    state: started
+    enabled: yes
+
+- name: Enable audit logging for SSH
+  lineinfile:
+    path: /etc/audit/rules.d/audit.rules
+    line: "-w /etc/ssh/sshd_config -p wa -k ssh_config"
+    create: yes
+  notify: Restart AuditD
+
+
+# Disable Unused Services
+- name: Gather package facts
+  ansible.builtin.package_facts:
+    manager: auto
+
+- name: Display all installed packages
+  ansible.builtin.debug:
+    var: ansible_facts.packages
+
+- name: Stop services if present
+  systemd:
+    name: "{{ item }}"
+    state: stopped
+    enabled: no
+  loop: "{{ disable_services }}"
+  when: item in ansible_facts.packages

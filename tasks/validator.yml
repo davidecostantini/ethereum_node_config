@@ -1,0 +1,51 @@
+---
+
+- name: Create Docker Compose directory for validator node
+  file:
+    path: /opt/validator_node
+    state: directory
+
+# - name: Install requests python specific package due to an issue with 2.32
+#   ansible.builtin.pip:
+#     name: requests==2.31.0
+
+- name: Copy Validator Docker Compose
+  ansible.builtin.template:
+    src: templates/validator.yml.j2
+    dest: "/opt/validator_node/docker-compose.yml"
+    mode: u=rw,g=r,o=r
+  register: restart_docker_compose
+
+- name: Stop docker-compose if necessary
+  ansible.builtin.command: docker compose down
+  args:
+    chdir: "/opt/validator_node"
+  when: restart_docker_compose is defined and restart_docker_compose.changed
+
+- name: Run docker-compose up
+  ansible.builtin.command: docker compose up -d
+  args:
+    chdir: "/opt/validator_node"
+  when: restart_docker_compose is defined and restart_docker_compose
+  register: docker_compose
+
+
+# - name: Create basic Docker network
+#   community.docker.docker_network:
+#     name: "node-network"
+#     state: present
+
+# - name: Start/Restart Validator Node
+#   community.general.docker_container:
+#     name: "validator-node"
+#     image: "{{ validator_image }}:{{ validator_image_version }}"
+#     init: yes
+#     networks:
+#       - name: "node-network"
+#     state: started
+#     restart_policy: always
+#     stop_timeout: "300" # secs
+#     volumes:
+#       - "/opt/validator_node:/app"
+#     ports:
+#     - "{{ validator_port }}:{{ validator_port }}"

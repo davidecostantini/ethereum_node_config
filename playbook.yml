@@ -1,0 +1,56 @@
+- name: Configure validator node
+  hosts: all
+  become: yes
+
+  vars:
+    allowed_ssh_users: ["ubuntu"]  # list of allowed users
+    allowed_ports: [30303,9000]  # Assuming Geth and Prysm
+    allowed_ssh_source_ips:
+    - "192.168.1.100/32"
+    - "10.0.0.50/32"
+    - "203.0.113.25/32"
+    - "0.0.0.0/0" # IMPORTANT: that's just for test and has to be removed
+
+    disable_services: ["apache2","nginx"]
+
+    validator_image: "guiters/go-ethereum-validator-node"
+    validator_image_version: "latest"
+    validator_port: 30303
+    validator_rpc_port: 8545
+
+    # Replace with CloudWatch data
+    cloudwatch_log_group: "/docker/validator-node-logs"
+    cloudwatch_stream_name: "validator-node"
+
+  handlers:
+    - name: Restart SSH
+      service:
+        name: ssh
+        state: restarted
+
+    - name: Restart AuditD
+      service:
+        name: auditd
+        state: restarted
+
+  tasks:
+
+    # Docker tasks
+    - name: Include docker tasks
+      ansible.builtin.import_tasks:
+        file: tasks/docker.yml
+
+    # System tasks
+    - name: Include system tasks
+      ansible.builtin.import_tasks:
+        file: tasks/system.yml
+
+    # Validator tasks
+    - name: Include validator tasks
+      ansible.builtin.import_tasks:
+        file: tasks/validator.yml
+
+   # Health Check tasks
+    - name: Include Health Check tasks
+      ansible.builtin.import_tasks:
+        file: tasks/health_check.yml

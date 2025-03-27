@@ -1,0 +1,107 @@
+services:
+  geth:
+    image: ethereum/client-go:v1.14.5
+    restart: unless-stopped
+    ports:
+      - 30303:30303
+      - 30303:30303/udp
+      - 8545:8545
+      - 8546:8546
+      - 6060:6060
+    volumes:
+      - /data/ethereum:/data/ethereum
+    stop_grace_period: 2m
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8545"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    command:
+      - --mainnet
+      - --syncmode=full
+      - --db.engine=pebble
+      - --maxpeers=2000
+      - --cache=4096
+      - --metrics
+      - --metrics.addr=0.0.0.0
+      - --metrics.port=6060
+      - --http
+      - --http.addr=0.0.0.0
+      - --http.api=eth,net,engine,admin
+      - --http.corsdomain=*
+      - --http.vhosts=*
+      - --ws
+      - --ws.addr=0.0.0.0
+      - --ws.port=8546
+      - --ws.api=eth,net,engine,admin
+      - --ws.origins=*
+      - --datadir=/data/ethereum/geth
+      - --authrpc.addr=0.0.0.0
+      - --authrpc.jwtsecret=/data/ethereum/jwt.hex
+      - --authrpc.vhosts=*
+      - --graphql
+      - --graphql.corsdomain=*
+      - --graphql.vhosts=*
+      - --log.file=/data/ethereum/logs/eth.log
+      - --log.rotate=true
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "10"
+
+  beacon:
+    image: gcr.io/prysmaticlabs/prysm/beacon-chain:v5.0.3
+    restart: unless-stopped
+    ports:
+      - "8080:8080/tcp"
+      - "12000:12000/udp"
+      - "13000:13000/tcp"
+    stop_grace_period: 2m
+    volumes:
+      - /data/ethereum:/data/ethereum
+    depends_on:
+      geth:
+        condition: service_healthy
+    command:
+      - --mainnet
+      - --execution-endpoint=http://geth:8551
+      - --checkpoint-sync-url=https://beaconstate.info
+      - --genesis-beacon-api-url=https://beaconstate.info
+      - --datadir=/data/ethereum/prysm
+      - --genesis-state=/data/ethereum/genesis.ssz
+      - --jwt-secret=/data/ethereum/jwt.hex
+      - --monitoring-host=0.0.0.0
+      - --monitoring-port=8080
+      - --log-file=/data/ethereum/logs/prysm.log
+      - --accept-terms-of-use
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "10"
+
+  validator:
+    image: gcr.io/prysmaticlabs/prysm/validator:v5.0.3
+    restart: unless-stopped
+    volumes:
+      - /data/ethereum/validator-keys:/validator-keys
+    depends_on:
+      beacon:
+        condition: service_started
+    command:
+      - --mainnet
+      - --beacon-rpc-provider=beacon:4000
+      - --wallet-dir=/validator-keys
+      - --wallet-password-file=/validator-keys/password.txt
+      - --suggested-fee-recipient=0x1234567890123456789012345678901234567890
+      - --accept-terms-of-use
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "10"
+
+networks:
+  default:
+    name: ethereum-validator-network

@@ -1,0 +1,22 @@
+#!/bin/bash
+
+# Run command and capture JSON output
+OUTPUT=$(curl -s -X POST -H "Content-Type: application/json" \
+  -d '{"id":1,"jsonrpc":"2.0","method":"eth_syncing","params":[]}' \
+  {{ eth_node_url }})
+
+# Extract the "result" field
+SYNC_STATUS=$(echo "$OUTPUT" | jq -r '.result')
+
+# Check if the result is "false"
+if [ "$SYNC_STATUS" == "false" ]; then
+  echo "OK - Node is fully synced"
+  exit 0
+else
+  echo "ERROR - Node is still syncing or unreachable"
+
+  # Example: You can send the alert to CloudWatch or any logging system
+  # aws logs put-log-events --log-group-name "{{ cloudwatch_log_group }}" --log-stream-name "ethereum-node" --log-events message="Ethereum node is not synced or down!"
+
+  exit 1
+fi

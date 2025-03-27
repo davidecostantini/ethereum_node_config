@@ -1,0 +1,21 @@
+---
+
+- name: Install health check tool (curl)
+  apt:
+    name: curl
+    state: present
+
+- name: Health check script for validator node
+  ansible.builtin.template:
+    src: health_check.sh.j2
+    dest: /opt/validator_node/health_check.sh
+    mode: 'u+x'
+  vars:
+    eth_node_url: "{{ 'http://localhost:' + validator_rpc_port | string }}"
+
+- name: Run health check every minute
+  cron:
+    name: "Validator Node Health Check"
+    minute: "*/1"
+    job: "/opt/validator_node/health_check.sh"
+    user: root
