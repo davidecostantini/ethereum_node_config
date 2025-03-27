@@ -30,6 +30,7 @@ Here some notes on the exercise:
 - Securing keys
 
 ## Improvements ideas
+- Tune linux system
 - Check if dependencies are installed
 - Dynamic inventory generation
 - Secure SSH access to nodes (For example a bastion host or a VPN)
